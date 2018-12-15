@@ -84,12 +84,17 @@ public enum AriCommandType {
     }
 
     private static Function<String, Option<Try<String>>> resourceIdFromBody(final String resourceIdXPath) {
-        return body -> Some(Try.of(() -> reader.readTree(body))
-                .toOption()
-                .flatMap(root -> Option.of(root.at(resourceIdXPath)))
-                .map(JsonNode::asText)
-                .flatMap(type -> StringUtils.isBlank(type) ? None() : Some(type))
-                .toTry(() -> new Throwable(String.format("Failed to extract resourceId at path=%s from body=%s", resourceIdXPath, body))));
+        return rawBody -> Option.of(rawBody)
+                .map(body -> Try.of(() -> reader.readTree(body).at(resourceIdXPath))
+                        .map(JsonNode::asText)
+                        .flatMap(type -> StringUtils.isBlank(type)
+                                ? Try.failure(new Throwable(
+                                        String.format(
+                                                "Failed to extract resourceId at path=%s from body=%s",
+                                                resourceIdXPath,
+                                                rawBody
+                                        )))
+                                : Try.success(type)));
     }
 
     private static Option<Try<String>> notAvailable(final String bodyOrUri) {
